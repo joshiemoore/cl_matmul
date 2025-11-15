@@ -60,5 +60,32 @@ int main() {
     return 1;
   }
 
+  ctx = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
+  check_error(err, "creating context");
+  q_cmd = clCreateCommandQueueWithProperties(ctx, device_id, NULL, &err);
+  check_error(err, "creating command queue");
+
+  // TODO load kernel source and build the program
+
+  // TODO create kernel from program
+
+  // TODO create I/O buffers in device memory
+
+  // TODO write input matrices to input buffers
+
+  // TODO set up kernel args
+
+  // TODO execute kernel, read and display results with timing
+
+  // TODO verify results
+
+  // cleanup
+  clReleaseCommandQueue(q_cmd);
+  clReleaseContext(ctx);
+
+  free(h_out);
+  free(h_b);
+  free(h_a);
+
   return 0;
 }

@@ -2,7 +2,7 @@ __kernel void matmul(
   __global float* a,
   __global float* b,
   __global float* out,
-  const unsigned int N)
+  const unsigned long int N)
 {
   int idx = get_global_id(0);
   int row = idx / N;

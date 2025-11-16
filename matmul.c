@@ -5,9 +5,9 @@
 #include <CL/cl.h>
 
 // size of square matrix
-const unsigned int N = 2048;
+const unsigned long int N = 4096;
 // total floating point operations (mul-acc)
-const unsigned int FLOP = N*N*2;
+const unsigned long int FLOP = N*N*(N*2);
 
 void check_error(int err, const char* msg) {
   if (err != CL_SUCCESS) {
@@ -113,7 +113,7 @@ int main() {
   err = clSetKernelArg(ko_matmul, 0, sizeof(cl_mem), &d_a);
   err |= clSetKernelArg(ko_matmul, 1, sizeof(cl_mem), &d_b);
   err |= clSetKernelArg(ko_matmul, 2, sizeof(cl_mem), &d_out);
-  err |= clSetKernelArg(ko_matmul, 3, sizeof(unsigned int), &N);
+  err |= clSetKernelArg(ko_matmul, 3, sizeof(unsigned long int), &N);
   check_error(err, "preparing kernel args");
 
   // execute kernel

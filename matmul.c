@@ -19,6 +19,7 @@ void check_error(int err, const char* msg) {
 int main() {
   cl_int err;
   size_t global_len = N*N;
+  size_t global_work_dims[2] = { N, N };
 
   cl_device_id device_id;
   cl_context ctx;
@@ -119,7 +120,7 @@ int main() {
   // execute kernel
   printf("running matmul on gpu...\n");
   cl_event perf_ev;
-  err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 1, NULL, &global_len, NULL, 0, NULL, &perf_ev);
+  err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 2, NULL, global_work_dims, NULL, 0, NULL, &perf_ev);
   check_error(err, "enqueueing kernel");
   err = clFinish(q_cmd);
   check_error(err, "waiting for kernel to finish");

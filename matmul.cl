@@ -4,9 +4,8 @@ __kernel void matmul(
   __global float* out,
   const unsigned long int N)
 {
-  int idx = get_global_id(0);
-  int row = idx / N;
-  int col = idx % N;
+  int col = get_global_id(0);
+  int row = get_global_id(1);
   float sum = 0.0;
   for (int i = 0; i < N; i++) {
     sum += a[row*N + i] * b[i*N + col];

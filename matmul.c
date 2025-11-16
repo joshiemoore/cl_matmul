@@ -66,7 +66,7 @@ int main() {
 
   ctx = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
   check_error(err, "creating context");
-  q_cmd = clCreateCommandQueueWithProperties(ctx, device_id, NULL, &err);
+  q_cmd = clCreateCommandQueue(ctx, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
   check_error(err, "creating command queue");
 
   // load kernel source
@@ -118,16 +118,19 @@ int main() {
 
   // execute kernel
   printf("running matmul on gpu...\n");
-  clock_t start_c = clock();
-  err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 1, NULL, &global_len, NULL, 0, NULL, NULL);
+  cl_event perf_ev;
+  err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 1, NULL, &global_len, NULL, 0, NULL, &perf_ev);
   check_error(err, "enqueueing kernel");
   err = clFinish(q_cmd);
   check_error(err, "waiting for kernel to finish");
 
-  clock_t run_c = clock() - start_c;
-  float run_s = run_c / (float)CLOCKS_PER_SEC;
+  cl_ulong t_start, t_end;
+  clGetEventProfilingInfo(perf_ev, CL_PROFILING_COMMAND_START, sizeof(t_start), &t_start, NULL);
+  clGetEventProfilingInfo(perf_ev, CL_PROFILING_COMMAND_END, sizeof(t_end), &t_end, NULL);
+  float run_s = (float)(t_end - t_start) * 1e-9;
+
   printf("gpu done in %fs\n", run_s);
-  printf("%f GFLOP/s\n", FLOP / run_s / 1000000000);
+  printf("%f GFLOP/s\n", FLOP / run_s / 1e9);
 
   // read output into host buffer
   err = clEnqueueReadBuffer(q_cmd, d_out, CL_TRUE, 0, sizeof(float) * global_len, h_out, 0, NULL, NULL);
@@ -136,7 +139,7 @@ int main() {
   // verify results
   printf("\nverifying results on cpu...\n");
   int correct_count = 0;
-  start_c = clock();
+  clock_t cpu_t_start = clock();
   for (int row = 0; row < N; row++) {
     for (int col = 0; col < N; col++) {
       float gpu_sum = h_out[row*N + col];
@@ -149,8 +152,7 @@ int main() {
       }
     }
   }
-  run_c = clock() - start_c;
-  run_s = run_c / (float)CLOCKS_PER_SEC;
+  run_s = (clock() - cpu_t_start) / (float)CLOCKS_PER_SEC;
   printf("cpu done in %fs\n", run_s);
   printf("%f GFLOP/s\n", FLOP / run_s / 1000000000);
   printf("\n%d/%d correct results\n", correct_count, (int)global_len);

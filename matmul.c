@@ -13,7 +13,7 @@ void check_error(int err, const char* msg) {
 }
 
 int main() {
-  int err;
+  cl_int err;
   size_t global_len = N*N;
 
   cl_device_id device_id;
@@ -65,9 +65,31 @@ int main() {
   q_cmd = clCreateCommandQueueWithProperties(ctx, device_id, NULL, &err);
   check_error(err, "creating command queue");
 
-  // TODO load kernel source and build the program
+  // load kernel source
+  FILE* inf = fopen("matmul.cl", "rb");
+  fseek(inf, 0, SEEK_END);
+  long inf_size = ftell(inf);
+  fseek(inf, 0, SEEK_SET);
+  char* kernel_src = malloc(inf_size + 1);
+  fread(kernel_src, inf_size, 1, inf);
+  kernel_src[inf_size] = 0;
+  fclose(inf);
 
-  // TODO create kernel from program
+  // build the program
+  program = clCreateProgramWithSource(ctx, 1, (const char**)&kernel_src, NULL, &err);
+  check_error(err, "creating program");
+  err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+  if (err != CL_SUCCESS) {
+    size_t err_len;
+    char err_buf[4096];
+    clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(err_buf), err_buf, &err_len);
+    printf("ERROR BUILDING PROGRAM:\n\n%s", err_buf);
+    return 1;
+  }
+
+  // create kernel from program
+  ko_matmul = clCreateKernel(program, "matmul", &err);
+  check_error(err, "creating kernel");
 
   // TODO create I/O buffers in device memory
 
@@ -80,9 +102,12 @@ int main() {
   // TODO verify results
 
   // cleanup
+  clReleaseKernel(ko_matmul);
+  clReleaseProgram(program);
   clReleaseCommandQueue(q_cmd);
   clReleaseContext(ctx);
 
+  free(kernel_src);
   free(h_out);
   free(h_b);
   free(h_a);

@@ -54,7 +54,7 @@ int main() {
   err = clGetPlatformIDs(num_platforms, platforms, NULL);
   check_error(err, "getting platforms");
   for (int i = 0; i < num_platforms; i++) {
-    err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_DEFAULT, 1, &device_id, NULL);
+    err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, 1, &device_id, NULL);
     if (err == CL_SUCCESS) {
       break;
     }

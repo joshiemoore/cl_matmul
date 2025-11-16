@@ -91,9 +91,19 @@ int main() {
   ko_matmul = clCreateKernel(program, "matmul", &err);
   check_error(err, "creating kernel");
 
-  // TODO create I/O buffers in device memory
+  // create I/O buffers in device memory
+  d_a = clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(float) * global_len, NULL, &err);
+  check_error(err, "creating device buffer d_a");
+  d_b = clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(float) * global_len, NULL, &err);
+  check_error(err, "creating device buffer d_b");
+  d_out = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, sizeof(float) * global_len, NULL, &err);
+  check_error(err, "creating device buffer d_out");
 
-  // TODO write input matrices to input buffers
+  // write input matrices to input buffers
+  err = clEnqueueWriteBuffer(q_cmd, d_a, CL_TRUE, 0, sizeof(float) * global_len, h_a, 0, NULL, NULL);
+  check_error(err, "writing h_a to d_a");
+  err = clEnqueueWriteBuffer(q_cmd, d_b, CL_TRUE, 0, sizeof(float) * global_len, h_b, 0, NULL, NULL);
+  check_error(err, "writing h_b to d_b");
 
   // TODO set up kernel args
 
@@ -102,6 +112,9 @@ int main() {
   // TODO verify results
 
   // cleanup
+  clReleaseMemObject(d_out);
+  clReleaseMemObject(d_b);
+  clReleaseMemObject(d_a);
   clReleaseKernel(ko_matmul);
   clReleaseProgram(program);
   clReleaseCommandQueue(q_cmd);

@@ -4,6 +4,8 @@
 #define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
 
+#define TS 16
+
 // size of square matrix
 const unsigned long int N = 4096;
 // total floating point operations (mul-acc)
@@ -20,6 +22,7 @@ int main() {
   cl_int err;
   size_t global_len = N*N;
   size_t global_work_dims[2] = { N, N };
+  size_t local_work_dims[2] = { TS, TS };
 
   cl_device_id device_id;
   cl_context ctx;
@@ -120,7 +123,7 @@ int main() {
   // execute kernel
   printf("running matmul on gpu...\n");
   cl_event perf_ev;
-  err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 2, NULL, global_work_dims, NULL, 0, NULL, &perf_ev);
+  err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 2, NULL, global_work_dims, local_work_dims, 0, NULL, &perf_ev);
   check_error(err, "enqueueing kernel");
   err = clFinish(q_cmd);
   check_error(err, "waiting for kernel to finish");

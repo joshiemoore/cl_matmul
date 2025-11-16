@@ -3,7 +3,7 @@
 #define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
 
-#define N 4
+const unsigned int N = 1024;
 
 void check_error(int err, const char* msg) {
   if (err != CL_SUCCESS) {
@@ -105,11 +105,42 @@ int main() {
   err = clEnqueueWriteBuffer(q_cmd, d_b, CL_TRUE, 0, sizeof(float) * global_len, h_b, 0, NULL, NULL);
   check_error(err, "writing h_b to d_b");
 
-  // TODO set up kernel args
+  // set up kernel args
+  err = clSetKernelArg(ko_matmul, 0, sizeof(cl_mem), &d_a);
+  err |= clSetKernelArg(ko_matmul, 1, sizeof(cl_mem), &d_b);
+  err |= clSetKernelArg(ko_matmul, 2, sizeof(cl_mem), &d_out);
+  err |= clSetKernelArg(ko_matmul, 3, sizeof(unsigned int), &N);
+  check_error(err, "preparing kernel args");
 
-  // TODO execute kernel, read and display results with timing
+  // execute kernel
+  // TODO timing
+  err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 1, NULL, &global_len, NULL, 0, NULL, NULL);
+  check_error(err, "enqueueing kernel");
+  err = clFinish(q_cmd);
+  check_error(err, "waiting for kernel to finish");
 
-  // TODO verify results
+  printf("gpu done in TODO seconds\n");
+
+  // read output into host buffer
+  err = clEnqueueReadBuffer(q_cmd, d_out, CL_TRUE, 0, sizeof(float) * global_len, h_out, 0, NULL, NULL);
+  check_error(err, "reading output buffer from device to host");
+
+  // verify results
+  // TODO timing
+  int correct_count = 0;
+  for (int row = 0; row < N; row++) {
+    for (int col = 0; col < N; col++) {
+      float gpu_sum = h_out[row*N + col];
+      float cpu_sum = 0.0;
+      for (int i = 0; i < N; i++) {
+        cpu_sum += h_a[row*N + i] * h_b[i*N + col];
+      }
+      if (abs(gpu_sum - cpu_sum) < 0.001) {
+        correct_count++;
+      }
+    }
+  }
+  printf("%d/%d correct results\n", correct_count, (int)global_len);
 
   // cleanup
   clReleaseMemObject(d_out);

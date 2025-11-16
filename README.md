@@ -1,3 +1,3 @@
 # cl_matmul
 
-multiplying matrices with OpenCL, how many GFLOPs can we get?
+multiplying square matrices with OpenCL, how many GFLOPs can we get?

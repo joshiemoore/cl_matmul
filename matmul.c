@@ -1,9 +1,13 @@
 #include <stdio.h>
+#include <time.h>
 
 #define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
 
-const unsigned int N = 1024;
+// size of square matrix
+const unsigned int N = 2048;
+// total floating point operations (mul-acc)
+const unsigned int FLOP = N*N*2;
 
 void check_error(int err, const char* msg) {
   if (err != CL_SUCCESS) {
@@ -113,21 +117,26 @@ int main() {
   check_error(err, "preparing kernel args");
 
   // execute kernel
-  // TODO timing
+  printf("running matmul on gpu...\n");
+  clock_t start_c = clock();
   err = clEnqueueNDRangeKernel(q_cmd, ko_matmul, 1, NULL, &global_len, NULL, 0, NULL, NULL);
   check_error(err, "enqueueing kernel");
   err = clFinish(q_cmd);
   check_error(err, "waiting for kernel to finish");
 
-  printf("gpu done in TODO seconds\n");
+  clock_t run_c = clock() - start_c;
+  float run_s = run_c / (float)CLOCKS_PER_SEC;
+  printf("gpu done in %fs\n", run_s);
+  printf("%f GFLOP/s\n", FLOP / run_s / 1000000000);
 
   // read output into host buffer
   err = clEnqueueReadBuffer(q_cmd, d_out, CL_TRUE, 0, sizeof(float) * global_len, h_out, 0, NULL, NULL);
   check_error(err, "reading output buffer from device to host");
 
   // verify results
-  // TODO timing
+  printf("\nverifying results on cpu...\n");
   int correct_count = 0;
+  start_c = clock();
   for (int row = 0; row < N; row++) {
     for (int col = 0; col < N; col++) {
       float gpu_sum = h_out[row*N + col];
@@ -140,7 +149,11 @@ int main() {
       }
     }
   }
-  printf("%d/%d correct results\n", correct_count, (int)global_len);
+  run_c = clock() - start_c;
+  run_s = run_c / (float)CLOCKS_PER_SEC;
+  printf("cpu done in %fs\n", run_s);
+  printf("%f GFLOP/s\n", FLOP / run_s / 1000000000);
+  printf("\n%d/%d correct results\n", correct_count, (int)global_len);
 
   // cleanup
   clReleaseMemObject(d_out);

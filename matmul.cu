@@ -4,6 +4,12 @@
 #define TILE 16
 #define WPT 2
 
+#if WPT == 2
+  #define floatX float2
+#elif WPT == 4
+  #define floatX float4
+#endif
+
 __global__ void matmul_cu(const float* A, const float* B, float* C, const int N) {
   __shared__ float A_tile[TILE][TILE+4];
   __shared__ float B_tile[TILE][TILE+4];
@@ -21,9 +27,11 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
     const int tile_col_idx = tile_offs + tile_col;
     const int tile_row_idx = tile_offs + tile_row;
     for (int br = 0; br < WPT; br++) {
+      floatX A_v = *(floatX*)&A[(row+br)*N + tile_col_idx];
+      #pragma unroll
       for (int bc = 0; bc < WPT; bc++) {
-        A_tile[tile_row+br][tile_col+bc] = (row < N && tile_col_idx < N) ? A[(row+br)*N + tile_col_idx + bc] : 0.0f;
-        B_tile[tile_row+br][tile_col+bc] = (tile_row_idx < N && col < N) ? B[(col + bc)*N + tile_row_idx + br] : 0.0f;
+        A_tile[tile_row+br][tile_col+bc] = reinterpret_cast<float*>(&A_v)[bc];
+        B_tile[tile_row+br][tile_col+bc] = B[(col + bc)*N + tile_row_idx + br];
       }
     }
     __syncthreads();

@@ -19,3 +19,4 @@ I bought an RTX 3060, now how many TFLOP/s can we get with CUDA?
 * [9bdc9dd](https://github.com/joshiemoore/cl_matmul/commit/9bdc9dd0cedb9569592c92e1b13bde555b1ee560): ~1.8 TFLOP/s - vectorize loads from A
 * [3e69932](https://github.com/joshiemoore/cl_matmul/commit/3e69932778b2ddf99f746d050313808754f420f0): ~1.9 TFLOP/s - vectorize loads from B, increase register block size to 4x4
 * [c526f1a](https://github.com/joshiemoore/cl_matmul/commit/c526f1a5a112f1979e901daf0aae05b8d6d860d5): ~2.0 TFLOP/s - vectorize writes to output
+* [73293ca](https://github.com/joshiemoore/cl_matmul/commit/73293cacd3461983832eee56129ac6214c60c185): ~2.5 TFLOP/s - increase tile size from 16 to 64

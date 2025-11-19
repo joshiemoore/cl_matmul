@@ -3,7 +3,7 @@
 
 #define RUNS 10
 
-#define TILE 16
+#define TILE 64
 #define WPT 4
 
 #if WPT == 2

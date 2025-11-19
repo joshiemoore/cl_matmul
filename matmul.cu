@@ -2,35 +2,48 @@
 #include <stdio.h>
 
 #define TILE 16
+#define WPT 2
 
 __global__ void matmul_cu(const float* A, const float* B, float* C, const int N) {
   __shared__ float A_tile[TILE][TILE+4];
   __shared__ float B_tile[TILE][TILE+4];
 
-  const int row = blockDim.y * blockIdx.y + threadIdx.y;
-  const int col = blockDim.x * blockIdx.x + threadIdx.x;
-  const int tile_row = threadIdx.y;
-  const int tile_col = threadIdx.x;
+  const int row = (blockDim.y * blockIdx.y + threadIdx.y) * WPT;
+  const int col = (blockDim.x * blockIdx.x + threadIdx.x) * WPT;
+  const int tile_row = threadIdx.y * WPT;
+  const int tile_col = threadIdx.x * WPT;
 
-  float sum = 0.0f;
+  float sum[WPT][WPT] = { 0.0f };
 
   const int num_tiles = N / TILE;
   for (int t = 0; t < num_tiles; t++) {
     const int tile_offs = TILE * t;
     const int tile_col_idx = tile_offs + tile_col;
     const int tile_row_idx = tile_offs + tile_row;
-    A_tile[tile_row][tile_col] = (row < N && tile_col_idx < N) ? A[row*N + tile_col_idx] : 0.0f;
-    B_tile[tile_col][tile_row] = (tile_row_idx < N && col < N) ? B[tile_row_idx*N + col] : 0.0f;
+    for (int br = 0; br < WPT; br++) {
+      for (int bc = 0; bc < WPT; bc++) {
+        A_tile[tile_row+br][tile_col+bc] = (row < N && tile_col_idx < N) ? A[(row+br)*N + tile_col_idx + bc] : 0.0f;
+        B_tile[tile_col+bc][tile_row+br] = (tile_row_idx < N && col < N) ? B[(tile_row_idx+br)*N + col + bc] : 0.0f;
+      }
+    }
     __syncthreads();
 
     for (int k = 0; k < TILE; k++) {
-      sum += A_tile[tile_row][k] * B_tile[tile_col][k];
+      for (int br = 0; br < WPT; br++) {
+        for (int bc = 0; bc < WPT; bc++) {
+          sum[br][bc] += A_tile[tile_row+br][k] * B_tile[tile_col+bc][k];
+        }
+      }
     }
     __syncthreads();
   }
 
   if (row < N && col < N) {
-    C[row*N + col] = sum;
+    for (int br = 0; br < WPT; br++ ) {
+      for (int bc = 0; bc < WPT; bc++) {
+        C[(row+br)*N + col + bc] = sum[br][bc];
+      }
+    }
   }
 }
 
@@ -62,7 +75,7 @@ int main(void) {
   cudaMemcpy(d_A, h_A, N*N*sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_B, h_B, N*N*sizeof(float), cudaMemcpyHostToDevice);
 
-  dim3 threadsPerBlock(TILE, TILE);
+  dim3 threadsPerBlock(TILE/WPT, TILE/WPT);
   // NB: this assumes N is a perfect multiple of tile size, which
   // is true here since we're just hardcoding N=4096
   dim3 blocksPerGrid(N/TILE, N/TILE);

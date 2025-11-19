@@ -23,7 +23,7 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
     for (int br = 0; br < WPT; br++) {
       for (int bc = 0; bc < WPT; bc++) {
         A_tile[tile_row+br][tile_col+bc] = (row < N && tile_col_idx < N) ? A[(row+br)*N + tile_col_idx + bc] : 0.0f;
-        B_tile[tile_col+bc][tile_row+br] = (tile_row_idx < N && col < N) ? B[(tile_row_idx+br)*N + col + bc] : 0.0f;
+        B_tile[tile_row+br][tile_col+bc] = (tile_row_idx < N && col < N) ? B[(col + bc)*N + tile_row_idx + br] : 0.0f;
       }
     }
     __syncthreads();
@@ -31,7 +31,7 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
     for (int k = 0; k < TILE; k++) {
       for (int br = 0; br < WPT; br++) {
         for (int bc = 0; bc < WPT; bc++) {
-          sum[br][bc] += A_tile[tile_row+br][k] * B_tile[tile_col+bc][k];
+          sum[br][bc] += A_tile[tile_row+br][k] * B_tile[k][tile_col+bc];
         }
       }
     }
@@ -54,13 +54,16 @@ int main(void) {
   // host buffers
   float* h_A = (float*)calloc(N*N, sizeof(float));
   float* h_B = (float*)calloc(N*N, sizeof(float));
+  float* h_Bt = (float*)calloc(N*N, sizeof(float));
   float* h_C = (float*)calloc(N*N, sizeof(float));
 
   // fill input matrices with random values
   for (int r = 0; r < N; r++) {
     for (int c = 0; c < N; c++) {
       h_A[r*N + c] = rand() / (float)RAND_MAX;
-      h_B[r*N + c] = rand() / (float)RAND_MAX;
+      float Bv = rand() / (float)RAND_MAX;
+      h_B[r*N + c] = Bv;
+      h_Bt[c*N + r] = Bv;
     }
   }
 
@@ -73,7 +76,7 @@ int main(void) {
   cudaMalloc((void**)&d_C, N*N*sizeof(float));
 
   cudaMemcpy(d_A, h_A, N*N*sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_B, h_B, N*N*sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_B, h_Bt, N*N*sizeof(float), cudaMemcpyHostToDevice);
 
   dim3 threadsPerBlock(TILE/WPT, TILE/WPT);
   // NB: this assumes N is a perfect multiple of tile size, which
@@ -117,6 +120,7 @@ int main(void) {
   cudaFree(d_B);
   cudaFree(d_A);
   free(h_C);
+  free(h_Bt);
   free(h_B);
   free(h_A);
 

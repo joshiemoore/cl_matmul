@@ -1,15 +1,35 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
+#define TILE 16
+
 __global__ void matmul_cu(const float* A, const float* B, float* C, const int N) {
+  __shared__ float A_tile[TILE][TILE+4];
+  __shared__ float B_tile[TILE][TILE+4];
+
   const int row = blockDim.y * blockIdx.y + threadIdx.y;
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
+  const int tile_row = threadIdx.y;
+  const int tile_col = threadIdx.x;
+
+  float sum = 0.0f;
+
+  const int num_tiles = N / TILE;
+  for (int t = 0; t < num_tiles; t++) {
+    const int tile_offs = TILE * t;
+    const int tile_col_idx = tile_offs + tile_col;
+    const int tile_row_idx = tile_offs + tile_row;
+    A_tile[tile_row][tile_col] = (row < N && tile_col_idx < N) ? A[row*N + tile_col_idx] : 0.0f;
+    B_tile[tile_col][tile_row] = (tile_row_idx < N && col < N) ? B[tile_row_idx*N + col] : 0.0f;
+    __syncthreads();
+
+    for (int k = 0; k < TILE; k++) {
+      sum += A_tile[tile_row][k] * B_tile[tile_col][k];
+    }
+    __syncthreads();
+  }
 
   if (row < N && col < N) {
-    float sum = 0.0f;
-    for (int k = 0; k < N; k++) {
-      sum += A[row*N + k] * B[k*N + col];
-    }
     C[row*N + col] = sum;
   }
 }
@@ -42,11 +62,10 @@ int main(void) {
   cudaMemcpy(d_A, h_A, N*N*sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_B, h_B, N*N*sizeof(float), cudaMemcpyHostToDevice);
 
-  dim3 threadsPerBlock(16, 16);
-  dim3 blocksPerGrid(
-    (N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-    (N + threadsPerBlock.y - 1) / threadsPerBlock.y
-  );
+  dim3 threadsPerBlock(TILE, TILE);
+  // NB: this assumes N is a perfect multiple of tile size, which
+  // is true here since we're just hardcoding N=4096
+  dim3 blocksPerGrid(N/TILE, N/TILE);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);

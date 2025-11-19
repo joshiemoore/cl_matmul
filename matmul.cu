@@ -1,6 +1,8 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
+#define RUNS 10
+
 #define TILE 16
 #define WPT 4
 
@@ -37,9 +39,9 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
     }
     __syncthreads();
 
-    for (int k = 0; k < TILE; k++) {
-      for (int br = 0; br < WPT; br++) {
-        for (int bc = 0; bc < WPT; bc++) {
+    for (int br = 0; br < WPT; br++) {
+      for (int bc = 0; bc < WPT; bc++) {
+        for (int k = 0; k < TILE; k++) {
           sum[br][bc] += A_tile[tile_row+br][k] * B_tile[tile_col+bc][k];
         }
       }
@@ -47,12 +49,9 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
     __syncthreads();
   }
 
-  if (row < N && col < N) {
-    for (int br = 0; br < WPT; br++ ) {
-      for (int bc = 0; bc < WPT; bc++) {
-        C[(row+br)*N + col + bc] = sum[br][bc];
-      }
-    }
+  const int cidx = col / WPT;
+  for (int br = 0; br < WPT; br++ ) {
+    reinterpret_cast<floatX*>(C)[(row+br)*(N/WPT) + cidx] = reinterpret_cast<floatX*>(sum)[br];
   }
 }
 
@@ -93,17 +92,24 @@ int main(void) {
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
 
-  cudaEventRecord(start);
-  matmul_cu<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, N);
-  cudaEventRecord(stop);
+  printf("running tests");
+  float time_total;
+  for (int i = 0; i < RUNS; i++) {
+    cudaEventRecord(start);
+    matmul_cu<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, N);
+    cudaEventRecord(stop);
 
-  cudaMemcpy(h_C, d_C, N*N*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_C, d_C, N*N*sizeof(float), cudaMemcpyDeviceToHost);
 
-  cudaEventSynchronize(stop);
-  float run_ms = 0;
-  cudaEventElapsedTime(&run_ms, start, stop);
-
-  printf("\nspeed: %f GFLOP/s\n\n", FLOP / (run_ms / 1000) / (float)1e9);
+    cudaEventSynchronize(stop);
+    float run_ms = 0;
+    cudaEventElapsedTime(&run_ms, start, stop);
+    time_total += run_ms;
+    printf(".");
+    fflush(stdout);
+  }
+  float mean_time_ms = time_total / RUNS;
+  printf("\n mean speed: %f GFLOP/s\n\n", FLOP / (mean_time_ms / 1000) / (float)1e9);
 
   // verify results
   unsigned int correct = 0;

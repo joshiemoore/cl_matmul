@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #define TILE 16
-#define WPT 2
+#define WPT 4
 
 #if WPT == 2
   #define floatX float2
@@ -28,10 +28,11 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
     const int tile_row_idx = tile_offs + tile_row;
     for (int br = 0; br < WPT; br++) {
       floatX A_v = *(floatX*)&A[(row+br)*N + tile_col_idx];
+      floatX B_v = *(floatX*)&B[(tile_row_idx+br)*N + col];
       #pragma unroll
       for (int bc = 0; bc < WPT; bc++) {
         A_tile[tile_row+br][tile_col+bc] = reinterpret_cast<float*>(&A_v)[bc];
-        B_tile[tile_row+br][tile_col+bc] = B[(col + bc)*N + tile_row_idx + br];
+        B_tile[tile_col+bc][tile_row+br] = reinterpret_cast<float*>(&B_v)[bc];
       }
     }
     __syncthreads();
@@ -39,7 +40,7 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
     for (int k = 0; k < TILE; k++) {
       for (int br = 0; br < WPT; br++) {
         for (int bc = 0; bc < WPT; bc++) {
-          sum[br][bc] += A_tile[tile_row+br][k] * B_tile[k][tile_col+bc];
+          sum[br][bc] += A_tile[tile_row+br][k] * B_tile[tile_col+bc][k];
         }
       }
     }
@@ -62,16 +63,13 @@ int main(void) {
   // host buffers
   float* h_A = (float*)calloc(N*N, sizeof(float));
   float* h_B = (float*)calloc(N*N, sizeof(float));
-  float* h_Bt = (float*)calloc(N*N, sizeof(float));
   float* h_C = (float*)calloc(N*N, sizeof(float));
 
   // fill input matrices with random values
   for (int r = 0; r < N; r++) {
     for (int c = 0; c < N; c++) {
       h_A[r*N + c] = rand() / (float)RAND_MAX;
-      float Bv = rand() / (float)RAND_MAX;
-      h_B[r*N + c] = Bv;
-      h_Bt[c*N + r] = Bv;
+      h_B[r*N + c] = rand() / (float)RAND_MAX;
     }
   }
 
@@ -84,7 +82,7 @@ int main(void) {
   cudaMalloc((void**)&d_C, N*N*sizeof(float));
 
   cudaMemcpy(d_A, h_A, N*N*sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_B, h_Bt, N*N*sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_B, h_B, N*N*sizeof(float), cudaMemcpyHostToDevice);
 
   dim3 threadsPerBlock(TILE/WPT, TILE/WPT);
   // NB: this assumes N is a perfect multiple of tile size, which
@@ -128,7 +126,6 @@ int main(void) {
   cudaFree(d_B);
   cudaFree(d_A);
   free(h_C);
-  free(h_Bt);
   free(h_B);
   free(h_A);
 

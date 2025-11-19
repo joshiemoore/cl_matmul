@@ -14,3 +14,4 @@ I bought an RTX 3060, now how many TFLOP/s can we get with CUDA?
 
 * [0e1382a](https://github.com/joshiemoore/cl_matmul/commit/0e1382a6e9a5539ce29da2fb77c982979bdb7059): ~800 GFLOP/s - naive implementation
 * [96a7782](https://github.com/joshiemoore/cl_matmul/commit/96a77821f55c0b30320aa26516039ebcea6758ad): ~1.4 TFLOP/s - shared memory tiling
+* [98fb354](https://github.com/joshiemoore/cl_matmul/commit/98fb354f366177624d9ccdc3b493cf73fdc4cde5): ~1.543 TFLOP/s - 2x2 register blocking

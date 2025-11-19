@@ -5,11 +5,13 @@ __global__ void matmul_cu(const float* A, const float* B, float* C, const int N)
   const int row = blockDim.y * blockIdx.y + threadIdx.y;
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
-  float sum = 0.0f;
-  for (int k = 0; k < N; k++) {
-    sum += A[row*N + k] * B[k*N + col];
+  if (row < N && col < N) {
+    float sum = 0.0f;
+    for (int k = 0; k < N; k++) {
+      sum += A[row*N + k] * B[k*N + col];
+    }
+    C[row*N + col] = sum;
   }
-  C[row*N + col] = sum;
 }
 
 int main(void) {

@@ -13,8 +13,8 @@
 #endif
 
 __global__ void matmul_cu(const float* A, const float* B, float* C, const int N) {
-  __shared__ float A_tile[TILE][TILE+4];
-  __shared__ float B_tile[TILE][TILE+4];
+  __shared__ float A_tile[TILE][TILE+1];
+  __shared__ float B_tile[TILE][TILE+1];
 
   const int row = (blockDim.y * blockIdx.y + threadIdx.y) * WPT;
   const int col = (blockDim.x * blockIdx.x + threadIdx.x) * WPT;
